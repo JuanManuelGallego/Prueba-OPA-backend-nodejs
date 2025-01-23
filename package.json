@@ -1,0 +1,21 @@
+{
+    "name": "backend-nodejs",
+    "version": "1.0.0",
+    "description": "Backend for the Prueba OPA project",
+    "main": "src/server.js",
+    "scripts": {
+        "start": "node src/server.js",
+        "dev": "nodemon src/server.js"
+    },
+    "dependencies": {
+        "backend-nodejs": "file:",
+        "express": "^4.21.2",
+        "mongoose": "^8.9.5",
+        "nodejs": "file:"
+    },
+    "devDependencies": {
+        "nodemon": "^3.0.1"
+    },
+    "author": "Juan Manuel Gallego",
+    "license": "ISC"
+}
