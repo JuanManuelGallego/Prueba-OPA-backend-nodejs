@@ -1,84 +1,65 @@
 const express = require('express');
-const bodyParser = require('body-parser');
 const mongoose = require('./db');
-const cors = require('cors')
+const cors = require('cors');
+
 const app = express();
 const port = 3000;
 
-app.use(bodyParser.json());
+app.use(express.json());
 app.use(cors());
 
 const tripSchema = new mongoose.Schema({
-  totalCalories: Number,
-  totalWeight: Number,
-  name: String,
-  optimalItems: [String],  
+  totalCalories: { type: Number, required: true, default: 0 },
+  totalWeight: { type: Number, required: true, default: 0 },
+  name: { type: String, required: true },
+  optimalItems: { type: [String], required: true },
 });
 
 const Trip = mongoose.model('Trip', tripSchema);
-app.get('/', async (req, res) => {
-  res.send("Backend for the Prueba OPA project")
-})
 
-app.get('/trips', async (req, res) => {
-  try {
-    const trips = await Trip.find();
-    res.json(trips);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
+const asyncHandler = (fn) => (req, res, next) =>
+  Promise.resolve(fn(req, res, next)).catch(next);
+
+app.get('/', (req, res) => {
+  res.send('Backend for the Prueba OPA project');
 });
 
-app.post('/trips', async (req, res) => {
-  const name = req.body.name;
-  const minCalories = parseInt(req.body.minCalories);
-  const maxWeight = parseInt(req.body.maxWeight);
-  const elements = req.body.items;
+app.get('/trips', asyncHandler(async (req, res) => {
+  const trips = await Trip.find();
+  res.json(trips);
+}));
+
+app.post('/trips', asyncHandler(async (req, res) => {
+  const { name, minCalories, maxWeight, items: elements } = req.body;
 
   if (isNaN(minCalories) || isNaN(maxWeight)) {
-    return res.status(400).json({ message: 'Invalid input. Please provide numbers for minCalories and maxWeight.' });
+    return res
+      .status(400)
+      .json({ message: 'Invalid input. Please provide valid numbers.' });
   }
 
-  const result = solveKnapsack(name, minCalories, maxWeight, elements);
-
+  const result = solveKnapsack(name, parseInt(minCalories), parseInt(maxWeight), elements);
   const trip = new Trip(result);
-  try {
-    const newTrip = await trip.save();
-    res.status(201).json(newTrip);
-  } catch (err) {
-    res.status(400).json({ message: err.message });
-  }
-});
+  const newTrip = await trip.save();
+  res.status(201).json(newTrip);
+}));
 
-app.delete('/trips/:id', async (req, res) => {
-  try {
-    const trip = await Trip.findById(req.params.id);
-    if (!trip) {
-      return res.status(404).json({ message: 'Trip not found' });
-    }
-    await trip.deleteOne();
-    res.json({ message: 'Trip deleted' });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
+app.delete('/trips/:id', asyncHandler(async (req, res) => {
+  const trip = await Trip.findById(req.params.id);
+  if (!trip) return res.status(404).json({ message: 'Trip not found' });
 
-app.listen(port, () => {
-  console.log(`Server running on http://localhost:${port}`);
-});
+  await trip.deleteOne();
+  res.json({ message: 'Trip deleted' });
+}));
 
 function solveKnapsack(name, minCalories, maxWeight, elements) {
-  const dp = Array(elements.length + 1)
-    .fill(null)
-    .map(() => Array(maxWeight + 1).fill(0));
-  const selectedItems = Array(elements.length + 1)
-    .fill(null)
-    .map(() => Array(maxWeight + 1).fill(false));
+  const n = elements.length;
+  const dp = Array.from({ length: n + 1 }, () => Array(maxWeight + 1).fill(0));
+  const selectedItems = Array.from({ length: n + 1 }, () => Array(maxWeight + 1).fill(false));
 
-  // Build DP table
-  for (let i = 1; i <= elements.length; i++) {
+  for (let i = 1; i <= n; i++) {
+    const { weight, calories } = elements[i - 1];
     for (let w = 1; w <= maxWeight; w++) {
-      const { weight, calories } = elements[i - 1];
       if (weight <= w) {
         const withCurrent = dp[i - 1][w - weight] + calories;
         const withoutCurrent = dp[i - 1][w];
@@ -90,36 +71,35 @@ function solveKnapsack(name, minCalories, maxWeight, elements) {
     }
   }
 
-  // Trace back to find optimal items
   const optimalItems = [];
   let w = maxWeight;
-
-  for (let i = elements.length; i > 0 && w > 0; i--) {
+  for (let i = n; i > 0 && w > 0; i--) {
     if (selectedItems[i][w]) {
       optimalItems.push(elements[i - 1]);
       w -= elements[i - 1].weight;
     }
   }
 
-  // Calculate total weight and calories of the selected items
-  const totalWeight = optimalItems.reduce((sum, item) => sum + Number(item.weight), 0);
-  const totalCalories = optimalItems.reduce((sum, item) => sum + Number(item.calories), 0);  
+  const totalWeight = optimalItems.reduce((sum, item) => sum + item.weight, 0);
+  const totalCalories = optimalItems.reduce((sum, item) => sum + item.calories, 0);
 
-  // Check if the selected items meet the minCalories requirement
   if (totalCalories < minCalories) {
-    return {
-      name,
-      optimalItems: [],
-      totalWeight: 0,
-      totalCalories: 0,
-    };
+    return { name, optimalItems: [], totalWeight: 0, totalCalories: 0 };
   }
 
-  // Return the result if it meets the requirements
   return {
     name,
-    optimalItems: optimalItems.map(item => item.name),
+    optimalItems: optimalItems.map((item) => item.name),
     totalWeight,
     totalCalories,
   };
 }
+
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ message: err.message });
+});
+
+app.listen(port, () => {
+  console.log(`Server running`);
+});
