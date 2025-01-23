@@ -1,11 +1,12 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const mongoose = require('./db');
+const cors = require('cors')
 const app = express();
 const port = 3000;
 
 app.use(bodyParser.json());
-
+app.use(cors());
 
 const tripSchema = new mongoose.Schema({
   totalCalories: Number,
