@@ -80,9 +80,9 @@ function solveKnapsack(name, minCalories, maxWeight, elements) {
     }
   }
 
-  const totalWeight = optimalItems.reduce((sum, item) => sum + item.weight, 0);
-  const totalCalories = optimalItems.reduce((sum, item) => sum + item.calories, 0);
-
+  const totalWeight = optimalItems.reduce((sum, item) => sum + Number(item.weight), 0);
+  const totalCalories = optimalItems.reduce((sum, item) => sum + Number(item.calories), 0);
+  
   if (totalCalories < minCalories) {
     return { name, optimalItems: [], totalWeight: 0, totalCalories: 0 };
   }
